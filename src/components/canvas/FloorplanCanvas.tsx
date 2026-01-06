@@ -31,7 +31,17 @@ export default function FloorplanCanvas({
     setViolations(foundViolations);
   }, [rooms, doors, fixtures, paths]);
 
-  // --- Helper Functions to fix the "Cannot find name" errors ---
+  // Helper: Prevents objects from being dragged off-screen
+  const dragBoundFunc = (pos: { x: number, y: number }) => {
+    const STAGE_WIDTH = 800;
+    const STAGE_HEIGHT = 600;
+    const PADDING = 20; // Keeps object at least 20px on screen
+    
+    return {
+      x: Math.max(0, Math.min(pos.x, STAGE_WIDTH - PADDING)),
+      y: Math.max(0, Math.min(pos.y, STAGE_HEIGHT - PADDING)),
+    };
+  };
 
   const handleDrag = (id: string, type: string, e: any) => {
     const newX = e.target.x();
@@ -52,96 +62,125 @@ export default function FloorplanCanvas({
             {rooms.map((room) => {
               const isViolating = violations.some(v => v.id === room.id);
               return (
-                <Group key={room.id} draggable onDragEnd={(e) => handleDrag(room.id, 'room', e)} onClick={() => setSelectedId(room.id)}>
+                <Group 
+                  key={room.id} 
+                  x={room.x} 
+                  y={room.y}
+                  draggable 
+                  dragBoundFunc={dragBoundFunc}
+                  onDragEnd={(e) => handleDrag(room.id, 'room', e)} 
+                  onClick={() => setSelectedId(room.id)}
+                >
                   <Rect
-                    x={room.x} y={room.y}
+                    x={0} y={0} // Relative to Group
                     width={room.width * 5} height={room.height * 5}
                     fill={isViolating ? "rgba(239, 68, 68, 0.1)" : selectedId === room.id ? "#f0f9ff" : "#f8fafc"}
                     stroke={isViolating ? "#ef4444" : selectedId === room.id ? "#0ea5e9" : "#cbd5e1"}
                     strokeWidth={2}
                   />
-                  <Text x={room.x + 5} y={room.y + 5} text={`${room.roomType}\n${room.area}m²\n${room.ceilingHeight}mm`} fontSize={11} fill={isViolating ? "#b91c1c" : "#475569"} />
+                  <Text 
+                    x={5} y={5} 
+                    text={`${room.roomType}\n${room.area}m²\n${room.ceilingHeight}mm`} 
+                    fontSize={11} 
+                    fill={isViolating ? "#b91c1c" : "#475569"} 
+                  />
                 </Group>
               );
             })}
 
             {/* KR 5: Render Egress Paths */}
             {paths.map((path) => (
-              <Group key={path.id} draggable onDragEnd={(e) => handleDrag(path.id, 'path', e)} onClick={() => setSelectedId(path.id)}>
+              <Group 
+                key={path.id} 
+                x={path.x}
+                y={path.y}
+                draggable 
+                dragBoundFunc={dragBoundFunc}
+                onDragEnd={(e) => handleDrag(path.id, 'path', e)} 
+                onClick={() => setSelectedId(path.id)}
+              >
                 <Rect
-                  x={path.x} y={path.y}
+                  x={0} y={0}
                   width={path.width} height={path.height}
                   fill="rgba(59, 130, 246, 0.05)"
                   stroke="#3b82f6"
                   dash={[5, 5]}
                 />
-                <Text x={path.x + 5} y={path.y + 5} text="Egress Path Zone" fontSize={10} fill="#3b82f6" />
+                <Text x={5} y={5} text="Egress Path Zone" fontSize={10} fill="#3b82f6" />
               </Group>
             ))}
 
             {/* KR 1 & 5: Render Doors (Fire Safety & Obstruction) */}
             {doors.map((door) => {
-                const isViolating = violations.some(v => v.id === door.id);
-                const SCALE = 10; 
+              const isViolating = violations.some(v => v.id === door.id);
+              const SCALE = 10; 
 
-                return (
-                    <Group 
-                    key={door.id} 
-                    x={door.x} // Positioning the group at the door's coordinates
-                    y={door.y}
-                    draggable 
-                    onDragEnd={(e) => handleDrag(door.id, 'door', e)} 
-                    onClick={() => setSelectedId(door.id)}
-                    >
-                    {/* The Door Leaf (The actual door panel) */}
-                    <Rect
-                        x={0}
-                        y={0}
-                        width={door.width / SCALE} 
-                        height={4} 
-                        fill={isViolating ? "#ef4444" : "#1e293b"}
-                        stroke={selectedId === door.id ? "#0ea5e9" : "none"}
-                        strokeWidth={2}
-                    />
+              return (
+                <Group 
+                  key={door.id} 
+                  x={door.x} // Positioning the group at the door's coordinates
+                  y={door.y}
+                  draggable 
+                  dragBoundFunc={dragBoundFunc}
+                  onDragEnd={(e) => handleDrag(door.id, 'door', e)} 
+                  onClick={() => setSelectedId(door.id)}
+                >
+                  {/* The Door Leaf */}
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={door.width / SCALE} 
+                    height={4} 
+                    fill={isViolating ? "#ef4444" : "#1e293b"}
+                    stroke={selectedId === door.id ? "#0ea5e9" : "none"}
+                    strokeWidth={2}
+                  />
 
-                    {/* KR 5: The Swing Arc (The Agent's "Danger Zone" sensor) */}
-                    <Arc
-                        x={door.swingDirection === 'LH' ? 0 : door.width / SCALE}
-                        y={0}
-                        innerRadius={door.width / SCALE}
-                        outerRadius={door.width / SCALE}
-                        angle={90}
-                        rotation={door.swingDirection === 'LH' ? 0 : 90}
-                        stroke={isViolating ? "#ef4444" : "#94a3b8"}
-                        dash={[2, 2]}
-                    />
+                  {/* KR 5: The Swing Arc */}
+                  <Arc
+                    x={door.swingDirection === 'LH' ? 0 : door.width / SCALE}
+                    y={0}
+                    innerRadius={door.width / SCALE}
+                    outerRadius={door.width / SCALE}
+                    angle={90}
+                    rotation={door.swingDirection === 'LH' ? 0 : 90}
+                    stroke={isViolating ? "#ef4444" : "#94a3b8"}
+                    dash={[2, 2]}
+                  />
 
-                    <Text 
-                        x={0} 
-                        y={-20} 
-                        text={`Door: ${door.width}mm`} 
-                        fontSize={10} 
-                        fill={isViolating ? "#ef4444" : "#1e293b"} 
-                    />
-                    </Group>
-                );
-                })
-            }
+                  <Text 
+                    x={0} 
+                    y={-20} 
+                    text={`Door: ${door.width}mm`} 
+                    fontSize={10} 
+                    fill={isViolating ? "#ef4444" : "#1e293b"} 
+                  />
+                </Group>
+              );
+            })}
 
             {/* KR 3: Render Fixtures (Accessibility) */}
             {fixtures.map((fixture) => {
               const isViolating = violations.some(v => v.id === fixture.id);
               return (
-                <Group key={fixture.id} draggable onDragEnd={(e) => handleDrag(fixture.id, 'fixture', e)} onClick={() => setSelectedId(fixture.id)}>
+                <Group 
+                  key={fixture.id} 
+                  x={fixture.x}
+                  y={fixture.y}
+                  draggable 
+                  dragBoundFunc={dragBoundFunc}
+                  onDragEnd={(e) => handleDrag(fixture.id, 'fixture', e)} 
+                  onClick={() => setSelectedId(fixture.id)}
+                >
                   <Rect
-                    x={fixture.x} y={fixture.y}
+                    x={0} y={0}
                     width={fixture.clearanceWidth / 10} height={fixture.clearanceDepth / 10}
                     fill={isViolating ? "rgba(239, 68, 68, 0.1)" : "rgba(34, 197, 94, 0.05)"}
                     stroke={isViolating ? "#ef4444" : "#22c55e"}
                     dash={[2, 2]}
                   />
-                  <Rect x={fixture.x} y={fixture.y} width={20} height={20} fill="#64748b" cornerRadius={2} />
-                  <Text x={fixture.x} y={fixture.y + 25} text={fixture.name} fontSize={10} />
+                  <Rect x={0} y={0} width={20} height={20} fill="#64748b" cornerRadius={2} />
+                  <Text x={0} y={25} text={fixture.name} fontSize={10} />
                 </Group>
               );
             })}

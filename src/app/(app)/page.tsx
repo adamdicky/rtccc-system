@@ -4,26 +4,20 @@ import React, { useState, useEffect } from 'react';
 import FloorplanCanvas from '@/components/canvas/FloorplanCanvas';
 import { InspectorSidebar } from '@/components/canvas/InspectorSidebar';
 import { Toolbar } from '@/components/canvas/Toolbar';
-import { ComplianceReport } from '@/components/canvas/ComplianceReport'; // Make sure this is created
+import { ComplianceReport } from '@/components/canvas/ComplianceReport'; 
 import { Room, Door, Fixture, Path } from '@/lib/ai-agent/types';
-import { runRTCCC } from '@/lib/ai-agent/inference-engine'; // The "Brain"
+import { runRTCCC } from '@/lib/ai-agent/inference-engine'; 
 
 export default function RTCCCApp() {
-  // 1. Environmental State
-  const [rooms, setRooms] = useState<Room[]>([
-    { 
-      id: 'room-1', type: 'room', roomType: 'Office', 
-      x: 100, y: 100, width: 20, height: 20, 
-      area: 4, ceilingHeight: 2200 
-    }
-  ]);
+  // 1. Environmental State - Starts empty for clean slate
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [doors, setDoors] = useState<Door[]>([]);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [paths, setPaths] = useState<Path[]>([]);
   
   // 2. Agent Reasoning State
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [allViolations, setAllViolations] = useState<any[]>([]); // <--- Here it is!
+  const [allViolations, setAllViolations] = useState<any[]>([]); 
 
   // 3. The Agent Loop: Sensing -> Reasoning
   useEffect(() => {
@@ -78,6 +72,15 @@ export default function RTCCCApp() {
       pathWidth: 1200,
     };
     setPaths([...paths, newPath]);
+  };
+
+  // Logic to remove objects from the environment
+  const deleteObject = (id: string, type: string) => {
+    if (type === 'room') setRooms(rooms.filter(r => r.id !== id));
+    if (type === 'door') setDoors(doors.filter(d => d.id !== id));
+    if (type === 'fixture') setFixtures(fixtures.filter(f => f.id !== id));
+    if (type === 'path') setPaths(paths.filter(p => p.id !== id));
+    setSelectedId(null); // Deselect after deleting
   };
 
   const handleUpdate = (updatedObj: any) => {
@@ -141,11 +144,29 @@ export default function RTCCCApp() {
           </div>
         </header>
 
-        <Toolbar onAddRoom={addRoom} onAddDoor={addDoor} onAddFixture={addFixture} onAddPath={addPath} onRunSimulation={loadDemoScenario} onSave={saveToPayload}/>
+        <Toolbar 
+          onAddRoom={addRoom} 
+          onAddDoor={addDoor} 
+          onAddFixture={addFixture} 
+          onAddPath={addPath} 
+          onRunSimulation={loadDemoScenario} 
+          onSave={saveToPayload}
+        />
         
         <div className="flex-1 relative flex flex-col overflow-hidden">
           <div className="flex-1 bg-slate-200 relative overflow-auto">
-            <FloorplanCanvas rooms={rooms} setRooms={setRooms} doors={doors} setDoors={setDoors} fixtures={fixtures} setFixtures={setFixtures} paths={paths} setPaths={setPaths} setSelectedId={setSelectedId} selectedId={selectedId} />
+            <FloorplanCanvas 
+              rooms={rooms} 
+              setRooms={setRooms} 
+              doors={doors} 
+              setDoors={setDoors} 
+              fixtures={fixtures} 
+              setFixtures={setFixtures} 
+              paths={paths} 
+              setPaths={setPaths} 
+              setSelectedId={setSelectedId} 
+              selectedId={selectedId} 
+            />
           </div>
           
           {/* The reasoning log visible at the bottom */}
@@ -153,7 +174,11 @@ export default function RTCCCApp() {
         </div>
       </div>
 
-      <InspectorSidebar selectedObject={selectedObject} onUpdate={handleUpdate} />
+      <InspectorSidebar 
+        selectedObject={selectedObject} 
+        onUpdate={handleUpdate} 
+        onDelete={deleteObject} 
+      />
     </main>
   );
 }
