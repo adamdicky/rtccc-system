@@ -3,15 +3,15 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button"; // Import Button
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2 } from "lucide-react"; // Import Trash icon
+import { Trash2 } from "lucide-react";
 import { Room, Door, Fixture, Path } from "@/lib/ai-agent/types";
 
 interface InspectorProps {
   selectedObject: Room | Door | Fixture | Path | null;
   onUpdate: (updatedObject: any) => void;
-  onDelete: (id: string, type: string) => void; // Add onDelete prop
+  onDelete: (id: string, type: string) => void;
 }
 
 export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: InspectorProps) {
@@ -61,7 +61,18 @@ export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: Inspect
               <Input 
                 type="number" 
                 value={selectedObject.area} 
-                onChange={(e) => onUpdate({ ...selectedObject, area: Number(e.target.value) })}
+                onChange={(e) => {
+                  const newArea = Number(e.target.value);
+                  // LOGIC FIX: Recalculate geometric size based on new Area
+                  // Formula: side = sqrt(Area) * 10 (Scaling factor based on 4m^2 = 20px)
+                  const newSide = Math.sqrt(newArea) * 10;
+                  onUpdate({ 
+                    ...selectedObject, 
+                    area: newArea,
+                    width: newSide,
+                    height: newSide
+                  });
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -148,7 +159,19 @@ export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: Inspect
               <Input 
                 type="number" 
                 value={selectedObject.pathWidth} 
-                onChange={(e) => onUpdate({ ...selectedObject, pathWidth: Number(e.target.value) })}
+                onChange={(e) => {
+                  const newPathWidth = Number(e.target.value);
+                  // LOGIC FIX: Update geometric height based on Path Width
+                  // Scale: 1 unit = 10mm (1200mm = 120px)
+                  // We update 'height' assuming the path is horizontal. 
+                  const newGeometricHeight = newPathWidth / 10;
+                  
+                  onUpdate({ 
+                    ...selectedObject, 
+                    pathWidth: newPathWidth,
+                    height: newGeometricHeight 
+                  });
+                }}
               />
             </div>
           </div>
