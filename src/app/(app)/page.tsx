@@ -23,6 +23,9 @@ export default function RTCCCApp() {
   const [isLoadSheetOpen, setIsLoadSheetOpen] = useState(false);
   const [savedProjects, setSavedProjects] = useState<any[]>([]);
 
+  // AI Loading State
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
   // Default: 10m x 8m
   const [canvasWidth, setCanvasWidth] = useState<number>(10000); 
   const [canvasHeight, setCanvasHeight] = useState<number>(8000);
@@ -34,44 +37,21 @@ export default function RTCCCApp() {
     setAllViolations(results);
   }, [rooms, doors, fixtures, paths]);
 
-  // --- Actions ---
-
+  // --- ACTIONS ---
   const addRoom = () => {
-    const newRoom: Room = { 
-      id: `room-${Date.now()}`, type: 'room', roomType: 'Habitable', 
-      x: 1000, y: 1000, // 1000mm = 50px (Visible)
-      width: 3000, height: 3000, 
-      area: 9, ceilingHeight: 2500 
-    };
+    const newRoom: Room = { id: `room-${Date.now()}`, type: 'room', roomType: 'Habitable', x: 1000, y: 1000, width: 3000, height: 3000, area: 9, ceilingHeight: 2500 };
     setRooms([...rooms, newRoom]);
   };
-
   const addDoor = () => {
-    const newDoor: Door = { 
-      id: `door-${Date.now()}`, type: 'door', 
-      x: 3500, y: 1500, // 3500mm = 175px (Visible)
-      width: 915, height: 40, rotation: 0,
-      isRequiredExit: true, swingDirection: 'LH' 
-    };
+    const newDoor: Door = { id: `door-${Date.now()}`, type: 'door', x: 3500, y: 1500, width: 915, height: 40, rotation: 0, isRequiredExit: true, swingDirection: 'LH' };
     setDoors([...doors, newDoor]);
   };
-
   const addFixture = () => {
-    const newFixture: Fixture = { 
-      id: `fix-${Date.now()}`, type: 'fixture', name: 'Sink', 
-      x: 1500, y: 1500, // Visible
-      width: 500, height: 500, 
-      isAccessible: true, clearanceWidth: 800, clearanceDepth: 1200 
-    };
+    const newFixture: Fixture = { id: `fix-${Date.now()}`, type: 'fixture', name: 'Sink', x: 1500, y: 1500, width: 500, height: 500, isAccessible: true, clearanceWidth: 800, clearanceDepth: 1200 };
     setFixtures([...fixtures, newFixture]);
   };
-
   const addPath = () => {
-    const newPath: Path = { 
-      id: `path-${Date.now()}`, type: 'path', 
-      x: 500, y: 4000, // 4000mm = 200px (Visible)
-      width: 5000, height: 1200, pathWidth: 1200 
-    };
+    const newPath: Path = { id: `path-${Date.now()}`, type: 'path', x: 500, y: 4000, width: 5000, height: 1200, pathWidth: 1200 };
     setPaths([...paths, newPath]);
   };
 
@@ -93,10 +73,42 @@ export default function RTCCCApp() {
   const loadDemoScenario = () => {
     setRooms([{ id: 'demo-room-1', type: 'room', roomType: 'Office', x: 500, y: 500, width: 3000, height: 3000, area: 9, ceilingHeight: 2400 }]);
     setDoors([{ id: 'demo-door-1', type: 'door', x: 3600, y: 2000, width: 915, height: 40, rotation: 0, isRequiredExit: true, swingDirection: 'LH' }]);
-    setFixtures([]);
-    setPaths([]);
+    setFixtures([]); setPaths([]);
   };
 
+  // --- NEW: AI IMPORT HANDLER ---
+  const handleImportPlan = async (file: File) => {
+    setIsAnalyzing(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/analyze-plan', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error("AI Analysis Failed");
+      
+      const data = await res.json();
+      
+      // 1. Resize Stage
+      if (data.width && data.height) {
+        setCanvasWidth(data.width);
+        setCanvasHeight(data.height);
+      }
+
+      // 2. Populate Objects
+      setRooms(data.rooms || []);
+      setDoors(data.doors || []);
+      setFixtures(data.fixtures || []);
+      setPaths(data.paths || []);
+
+      alert("✅ AI Analysis Complete! Plan replicated.");
+    } catch (e: any) {
+      alert(`❌ Error: ${e.message}`);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // --- API Handlers ---
   const saveToPayload = async () => {
     try {
       const response = await fetch('/api/projects', {
@@ -109,7 +121,7 @@ export default function RTCCCApp() {
         }),
       });
       if (response.ok) alert("✅ Design saved!");
-      else { const e = await response.json(); alert(`❌ Error: ${e.message || 'Save failed'}`); }
+      else { const e = await response.json(); alert(`❌ Error: ${e.message}`); }
     } catch (e: any) { alert(`❌ Network Error: ${e.message}`); }
   };
 
@@ -154,6 +166,11 @@ export default function RTCCCApp() {
         <Toolbar 
           onAddRoom={addRoom} onAddDoor={addDoor} onAddFixture={addFixture} onAddPath={addPath} 
           onRunSimulation={loadDemoScenario} onSave={saveToPayload} onLoad={fetchProjects} 
+          
+          // NEW PROPS
+          onImportPlan={handleImportPlan}
+          isAnalyzing={isAnalyzing}
+
           canvasWidth={canvasWidth} setCanvasWidth={setCanvasWidth} canvasHeight={canvasHeight} setCanvasHeight={setCanvasHeight}
           scale={scale} setScale={setScale}
         />
