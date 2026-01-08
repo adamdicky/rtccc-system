@@ -12,40 +12,34 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default function RTCCCApp() {
-  // 1. Environmental State
   const [rooms, setRooms] = useState<Room[]>([]);
   const [doors, setDoors] = useState<Door[]>([]);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [paths, setPaths] = useState<Path[]>([]);
   
-  // 2. Agent Reasoning State
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [allViolations, setAllViolations] = useState<any[]>([]);
   
-  // 3. Load/Save System State
   const [isLoadSheetOpen, setIsLoadSheetOpen] = useState(false);
   const [savedProjects, setSavedProjects] = useState<any[]>([]);
 
-  // 4. Canvas View State
-  // Default Project Size: 10,000mm x 8,000mm (10m x 8m)
+  // Default: 10m x 8m
   const [canvasWidth, setCanvasWidth] = useState<number>(10000); 
   const [canvasHeight, setCanvasHeight] = useState<number>(8000);
   const [scale, setScale] = useState<number>(1);
 
-  // The Agent Loop
   useEffect(() => {
     const currentData = { rooms, doors, fixtures, paths };
     const results = runRTCCC(currentData);
     setAllViolations(results);
   }, [rooms, doors, fixtures, paths]);
 
-  // --- Actions (Using Millimeters) ---
+  // --- Actions ---
 
   const addRoom = () => {
-    // 9m² room = 3000mm x 3000mm
     const newRoom: Room = { 
       id: `room-${Date.now()}`, type: 'room', roomType: 'Habitable', 
-      x: 100, y: 100, 
+      x: 1000, y: 1000, // 1000mm = 50px (Visible)
       width: 3000, height: 3000, 
       area: 9, ceilingHeight: 2500 
     };
@@ -53,21 +47,19 @@ export default function RTCCCApp() {
   };
 
   const addDoor = () => {
-    // Standard Door = 915mm
     const newDoor: Door = { 
       id: `door-${Date.now()}`, type: 'door', 
-      x: 400, y: 400, 
-      width: 915, height: 40, 
+      x: 3500, y: 1500, // 3500mm = 175px (Visible)
+      width: 915, height: 40, rotation: 0,
       isRequiredExit: true, swingDirection: 'LH' 
     };
     setDoors([...doors, newDoor]);
   };
 
   const addFixture = () => {
-    // Sink = 500mm x 500mm box
     const newFixture: Fixture = { 
       id: `fix-${Date.now()}`, type: 'fixture', name: 'Sink', 
-      x: 600, y: 600, 
+      x: 1500, y: 1500, // Visible
       width: 500, height: 500, 
       isAccessible: true, clearanceWidth: 800, clearanceDepth: 1200 
     };
@@ -75,12 +67,10 @@ export default function RTCCCApp() {
   };
 
   const addPath = () => {
-    // 3m Long path, 1.2m Wide
     const newPath: Path = { 
       id: `path-${Date.now()}`, type: 'path', 
-      x: 50, y: 800, 
-      width: 3000, height: 1200, // Width=Length, Height=Thickness
-      pathWidth: 1200 
+      x: 500, y: 4000, // 4000mm = 200px (Visible)
+      width: 5000, height: 1200, pathWidth: 1200 
     };
     setPaths([...paths, newPath]);
   };
@@ -101,14 +91,12 @@ export default function RTCCCApp() {
   };
 
   const loadDemoScenario = () => {
-    // Demo 4m² office = 2000mm x 2000mm
-    setRooms([{ id: 'demo-room-1', type: 'room', roomType: 'Office', x: 200, y: 200, width: 2000, height: 2000, area: 4, ceilingHeight: 2200 }]);
-    setDoors([{ id: 'demo-door-1', type: 'door', x: 450, y: 200, width: 850, height: 40, isRequiredExit: true, swingDirection: 'LH' }]);
-    setFixtures([{ id: 'demo-fix-1', type: 'fixture', name: 'Accessible Sink', x: 120, y: 120, width: 500, height: 500, isAccessible: true, clearanceWidth: 800, clearanceDepth: 1200 }]);
+    setRooms([{ id: 'demo-room-1', type: 'room', roomType: 'Office', x: 500, y: 500, width: 3000, height: 3000, area: 9, ceilingHeight: 2400 }]);
+    setDoors([{ id: 'demo-door-1', type: 'door', x: 3600, y: 2000, width: 915, height: 40, rotation: 0, isRequiredExit: true, swingDirection: 'LH' }]);
+    setFixtures([]);
     setPaths([]);
   };
 
-  // --- API Handlers ---
   const saveToPayload = async () => {
     try {
       const response = await fetch('/api/projects', {
@@ -120,29 +108,26 @@ export default function RTCCCApp() {
           status: allViolations.length > 0 ? 'non-compliant' : 'compliant',
         }),
       });
-      if (response.ok) alert("Saved to PayloadCMS!");
-      else alert("Failed to save. Check console.");
-    } catch (e) { console.error(e); }
+      if (response.ok) alert("✅ Design saved!");
+      else { const e = await response.json(); alert(`❌ Error: ${e.message || 'Save failed'}`); }
+    } catch (e: any) { alert(`❌ Network Error: ${e.message}`); }
   };
 
   const fetchProjects = async () => {
     try {
       const res = await fetch('/api/projects');
+      if (!res.ok) throw new Error("API not found");
       const data = await res.json();
-      if (data.docs) {
-        setSavedProjects(data.docs);
-        setIsLoadSheetOpen(true);
-      }
-    } catch (e) { console.error("Load Error:", e); }
+      if (data.docs) { setSavedProjects(data.docs); setIsLoadSheetOpen(true); }
+    } catch (e: any) { alert(`❌ Load Error: ${e.message}`); }
   };
 
   const loadProject = (project: any) => {
-    const data = project.floorplanData;
-    if (data) {
-      setRooms(data.rooms || []);
-      setDoors(data.doors || []);
-      setFixtures(data.fixtures || []);
-      setPaths(data.paths || []);
+    if (project.floorplanData) {
+      setRooms(project.floorplanData.rooms || []);
+      setDoors(project.floorplanData.doors || []);
+      setFixtures(project.floorplanData.fixtures || []);
+      setPaths(project.floorplanData.paths || []);
       setIsLoadSheetOpen(false); 
     }
   };
@@ -163,28 +148,14 @@ export default function RTCCCApp() {
             }`}>
               {allViolations.length > 0 ? `${allViolations.length} Violations` : "Compliant"}
             </div>
-            <div className="text-[10px] font-bold px-3 py-1 bg-slate-100 text-slate-600 rounded-full uppercase tracking-widest border border-slate-200">
-              Agent: Goal-Based
-            </div>
           </div>
         </header>
 
         <Toolbar 
-          onAddRoom={addRoom} 
-          onAddDoor={addDoor} 
-          onAddFixture={addFixture} 
-          onAddPath={addPath} 
-          onRunSimulation={loadDemoScenario} 
-          onSave={saveToPayload}
-          onLoad={fetchProjects} 
-          // Canvas Props passed down
-          canvasWidth={canvasWidth}
-          setCanvasWidth={setCanvasWidth}
-          canvasHeight={canvasHeight}
-          setCanvasHeight={setCanvasHeight}
-          // Scale Props
-          scale={scale}
-          setScale={setScale}
+          onAddRoom={addRoom} onAddDoor={addDoor} onAddFixture={addFixture} onAddPath={addPath} 
+          onRunSimulation={loadDemoScenario} onSave={saveToPayload} onLoad={fetchProjects} 
+          canvasWidth={canvasWidth} setCanvasWidth={setCanvasWidth} canvasHeight={canvasHeight} setCanvasHeight={setCanvasHeight}
+          scale={scale} setScale={setScale}
         />
         
         <div className="flex-1 relative flex flex-col overflow-hidden">
@@ -195,12 +166,7 @@ export default function RTCCCApp() {
               fixtures={fixtures} setFixtures={setFixtures} 
               paths={paths} setPaths={setPaths} 
               setSelectedId={setSelectedId} selectedId={selectedId}
-              
-              // NEW: Pass "Project" Dimensions (Paper Size)
-              projectWidth={canvasWidth} 
-              projectHeight={canvasHeight}
-              
-              scale={scale}
+              projectWidth={canvasWidth} projectHeight={canvasHeight} scale={scale}
             />
           </div>
           <ComplianceReport violations={allViolations} />
@@ -211,25 +177,14 @@ export default function RTCCCApp() {
 
       <Sheet open={isLoadSheetOpen} onOpenChange={setIsLoadSheetOpen}>
         <SheetContent side="left">
-          <SheetHeader>
-            <SheetTitle>Saved Designs</SheetTitle>
-            <SheetDescription>Select a past project.</SheetDescription>
-          </SheetHeader>
+          <SheetHeader><SheetTitle>Saved Designs</SheetTitle><SheetDescription>Select a past project.</SheetDescription></SheetHeader>
           <div className="mt-4 space-y-3 overflow-y-auto max-h-[80vh]">
             {savedProjects.map((proj: any) => (
               <Card key={proj.id} className="p-3 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => loadProject(proj)}>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-sm truncate">{proj.title}</span>
-                  <Badge variant={proj.status === 'compliant' ? 'default' : 'destructive'} className="text-[10px]">
-                    {proj.status}
-                  </Badge>
-                </div>
-                <div className="text-xs text-slate-400">
-                  {new Date(proj.createdAt).toLocaleDateString()}
-                </div>
+                <span className="font-bold text-sm truncate">{proj.title}</span>
+                <div className="text-xs text-slate-400">{new Date(proj.createdAt).toLocaleDateString()}</div>
               </Card>
             ))}
-            {savedProjects.length === 0 && <p className="text-sm text-slate-500 text-center">No saved projects found.</p>}
           </div>
         </SheetContent>
       </Sheet>
