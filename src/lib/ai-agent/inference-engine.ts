@@ -51,7 +51,7 @@ export function checkDoorWidth(door: Door, minWidth: number = 915) {
       compliant: isCompliant,
       message: isCompliant 
         ? "Compliant" 
-        : `Violation: Exit door too narrow (${door.width}mm). Suggestion: Increase width to ≥ ${minWidth}mm.`
+        : `KR 1 Violation: Exit door too narrow (${door.width}mm). Suggestion: Increase width to ≥ ${minWidth}mm.`
     };
   }
   return { compliant: true };
@@ -66,7 +66,7 @@ export function checkRoomArea(room: Room, minArea: number = 9) {
       compliant: isCompliant,
       message: isCompliant 
         ? "Compliant" 
-        : `Violation: Room area ${room.area}m² < ${minArea}m². Suggestion: Extend room dimensions (Length/Width).`
+        : `KR 2 Violation: Room area ${room.area}m² < ${minArea}m². Suggestion: Extend room dimensions (Length/Width).`
     };
   }
   return { compliant: true };
@@ -81,7 +81,7 @@ export function checkCeilingHeight(room: Room, minHeight: number = 2400) {
       compliant: isCompliant,
       message: isCompliant 
         ? "Compliant" 
-        : `Violation: Ceiling ${room.ceilingHeight}mm < ${minHeight}mm. Suggestion: Raise ceiling height.`
+        : `KR 4 Violation: Ceiling ${room.ceilingHeight}mm < ${minHeight}mm. Suggestion: Raise ceiling height.`
     };
   }
   return { compliant: true };
