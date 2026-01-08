@@ -6,7 +6,6 @@ function getBounds(obj: any) {
   const isRotated = rotation === 90 || rotation === 270;
   
   // For paths/rooms/fixtures, width is X-axis size, height is Y-axis size (unless rotated)
-  // Note: Your UI uses 'Length' for Height, essentially Y-dimension.
   return {
     left: obj.x,
     top: obj.y,
@@ -43,49 +42,57 @@ function getDoorSwingZone(door: Door) {
   return { left: door.x, top: door.y, right: door.x + swingRadius, bottom: door.y + swingRadius };
 }
 
-/** KR 1: Door Width */
+/** KR 1: Fire Safety - Minimum Egress Door Width */
+// Actuator: IncreaseWidth()
 export function checkDoorWidth(door: Door, minWidth: number = 915) {
   if (door.isRequiredExit) {
     const isCompliant = door.width >= minWidth;
     return {
       compliant: isCompliant,
-      message: isCompliant ? "Compliant" : `Violation: Door width ${door.width}mm < ${minWidth}mm`
+      message: isCompliant 
+        ? "Compliant" 
+        : `Violation: Exit door too narrow (${door.width}mm). Suggestion: Increase width to ≥ ${minWidth}mm.`
     };
   }
   return { compliant: true };
 }
 
-/** KR 2: Room Area */
+/** KR 2: Space Planning - Minimum Room Area */
+// Actuator: ExtendLength() or ExtendWidth()
 export function checkRoomArea(room: Room, minArea: number = 9) {
-  // FIX: Check multiple room types, not just Office
   if (['Office', 'Habitable', 'Bedroom', 'Living'].includes(room.roomType)) {
     const isCompliant = room.area >= minArea;
     return {
       compliant: isCompliant,
-      message: isCompliant ? "Compliant" : `Violation: Room area ${room.area}m² < ${minArea}m²`
+      message: isCompliant 
+        ? "Compliant" 
+        : `Violation: Room area ${room.area}m² < ${minArea}m². Suggestion: Extend room dimensions (Length/Width).`
     };
   }
   return { compliant: true };
 }
 
-/** KR 4: Ceiling Height */
+/** KR 4: Indoor Comfort - Ceiling Height */
+// Actuator: RaiseRoof()
 export function checkCeilingHeight(room: Room, minHeight: number = 2400) {
-  // FIX: Ensure this runs for standard rooms
   if (['Office', 'Habitable', 'Bedroom', 'Living'].includes(room.roomType)) {
     const isCompliant = room.ceilingHeight >= minHeight;
     return {
       compliant: isCompliant,
-      message: isCompliant ? "Compliant" : `Violation: Ceiling ${room.ceilingHeight}mm < ${minHeight}mm`
+      message: isCompliant 
+        ? "Compliant" 
+        : `Violation: Ceiling ${room.ceilingHeight}mm < ${minHeight}mm. Suggestion: Raise ceiling height.`
     };
   }
   return { compliant: true };
 }
 
-/** KR 3: Fixture Clearance vs Obstructions */
+/** KR 3: Accessibility - Fixture Clearance */
+// Actuators: Move(), Rotate(), Remove()
 export function checkFixtureClearance(fixture: Fixture, context: { doors: Door[], paths: Path[], fixtures: Fixture[] }) {
   if (!fixture.isAccessible) return { compliant: true };
 
-  // 1. Define Clearance Zone (Centered on fixture for simplicity)
+  // 1. Define Clearance Zone
   const clearanceZone = {
     left: fixture.x - (fixture.clearanceWidth - fixture.width) / 2,
     top: fixture.y - (fixture.clearanceDepth - fixture.height) / 2,
@@ -96,7 +103,11 @@ export function checkFixtureClearance(fixture: Fixture, context: { doors: Door[]
   // 2. Check overlap with PATHS (Egress)
   for (const path of context.paths) {
     if (checkIntersection(clearanceZone, getBounds(path))) {
-      return { id: fixture.id, compliant: false, message: `KR 3 Violation: Fixture clearance overlaps Egress Path.` };
+      return { 
+        id: fixture.id, 
+        compliant: false, 
+        message: `KR 3 Violation: Fixture clearance overlaps Egress Path. Suggestion: Move or rotate fixture away from path.` 
+      };
     }
   }
 
@@ -104,25 +115,32 @@ export function checkFixtureClearance(fixture: Fixture, context: { doors: Door[]
   for (const door of context.doors) {
     const swingZone = getDoorSwingZone(door);
     if (checkIntersection(clearanceZone, swingZone)) {
-      return { id: fixture.id, compliant: false, message: `KR 3 Violation: Fixture clearance hit by Door Swing.` };
+      return { 
+        id: fixture.id, 
+        compliant: false, 
+        message: `KR 3 Violation: Fixture clearance hit by Door Swing. Suggestion: Move fixture or change door swing direction.` 
+      };
     }
   }
 
-  // 4. Check overlap with OTHER FIXTURES (Optional, but good practice)
+  // 4. Check overlap with OTHER FIXTURES
   for (const other of context.fixtures) {
     if (other.id !== fixture.id) {
       if (checkIntersection(clearanceZone, getBounds(other))) {
-        return { id: fixture.id, compliant: false, message: `KR 3 Violation: Fixture clearance overlaps ${other.name}.` };
+        return { 
+          id: fixture.id, 
+          compliant: false, 
+          message: `KR 3 Violation: Fixture clearance overlaps ${other.name}. Suggestion: Reposition fixture to ensure clear space.` 
+        };
       }
     }
   }
 
-  // NOTE: We intentionally DO NOT check Rooms here, so fixtures can be inside rooms.
-
   return { compliant: true };
 }
 
-/** KR 5: Egress Obstruction (Door Swing vs Path) */
+/** KR 5: Fire Safety - Egress Obstruction */
+// Actuators: Move(), Remove(), ChangeSwing()
 export function checkEgressObstruction(door: Door, path: Path) {
   const swingZone = getDoorSwingZone(door);
   const pathBounds = getBounds(path);
@@ -131,7 +149,7 @@ export function checkEgressObstruction(door: Door, path: Path) {
     return {
       id: door.id,
       compliant: false,
-      message: `KR 5 Violation: Door swing blocks Egress Path.`
+      message: `KR 5 Violation: Door swing blocks Egress Path. Suggestion: Move door or change swing direction.`
     };
   }
   return { compliant: true };
@@ -155,14 +173,13 @@ export function runRTCCC(data: { rooms: Room[], doors: Door[], fixtures: Fixture
   // KR 2 & KR 4: Rooms
   data.rooms.forEach(room => {
     const areaCheck = checkRoomArea(room);
-    const heightCheck = checkCeilingHeight(room); // Now checks >= 2400
+    const heightCheck = checkCeilingHeight(room);
     if (!areaCheck.compliant) violations.push({ ...areaCheck, id: room.id });
     if (!heightCheck.compliant) violations.push({ ...heightCheck, id: room.id });
   });
 
   // KR 3: Fixtures
   data.fixtures.forEach(fix => {
-    // Pass context (Doors & Paths) so we can check specific overlaps
     const c = checkFixtureClearance(fix, { 
       doors: data.doors, 
       paths: data.paths, 

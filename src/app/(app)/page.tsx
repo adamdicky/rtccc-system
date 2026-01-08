@@ -152,7 +152,7 @@ export default function RTCCCApp() {
         <header className="p-4 border-b bg-white flex justify-between items-center shadow-sm">
           <div>
             <h1 className="text-xl font-bold text-slate-800">RTCCC System</h1>
-            <p className="text-xs text-slate-500 font-medium tracking-tight">Real-Time Construction Compliance Checker</p>
+            <p className="text-xs text-slate-500 font-medium tracking-tight">Real-Time Code Compliance Checker</p>
           </div>
           <div className="flex gap-2">
             <div className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border ${
