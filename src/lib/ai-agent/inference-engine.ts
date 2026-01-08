@@ -1,8 +1,7 @@
-// src/lib/ai-agent/inference-engine.ts
 import { Room, Door, Fixture, Path } from './types';
 
 /** * KR 1: Fire Safety – Minimum Egress Door Width
- * Logic: ∀x (IsRequiredExit(x) ∧ Width(x, w) → w ≥ 915) [cite: 49]
+ * Logic: ∀x (IsRequiredExit(x) ∧ Width(x, w) → w ≥ 915)
  */
 export function checkDoorWidth(door: Door, minWidth: number = 915) {
   if (door.isRequiredExit) {
@@ -18,7 +17,7 @@ export function checkDoorWidth(door: Door, minWidth: number = 915) {
 }
 
 /** * KR 2: Space Planning – Minimum Room Area
- * Logic: ∀r (Room(r) ∧ RoomType(r, Office) → Area(r) ≥ 9) [cite: 52]
+ * Logic: ∀r (Room(r) ∧ RoomType(r, Office) → Area(r) ≥ 9)
  */
 export function checkRoomArea(room: Room, minArea: number = 9) {
   if (room.roomType === 'Office') {
@@ -34,7 +33,7 @@ export function checkRoomArea(room: Room, minArea: number = 9) {
 }
 
 /** * KR 3: Accessibility – Clear Space Around Fixtures
- * Logic: ∀f, o (IsAccessible(f) ∧ IsObstruction(o) ∧ OverlapsClearance(o, f) → ¬Compliant(f)) [cite: 56]
+ * Logic: ∀f, o (IsAccessible(f) ∧ IsObstruction(o) ∧ OverlapsClearance(o, f) → ¬Compliant(f))
  */
 export function checkFixtureClearance(fixture: Fixture, allObjects: any[]) {
   if (!fixture.isAccessible) return { compliant: true };
@@ -78,10 +77,11 @@ export function checkFixtureClearance(fixture: Fixture, allObjects: any[]) {
 }
 
 /** * KR 4: Indoor Comfort – Minimum Ceiling Height Standard
- * Logic: ∀r (Room(r) ∧ Habitable(r) → CeilingHeight(r) ≥ 2400) [cite: 59]
+ * Logic: ∀r (Room(r) ∧ Habitable(r) → CeilingHeight(r) ≥ 2400)
  */
 export function checkCeilingHeight(room: Room, minHeight: number = 2400) {
-  if (room.roomType === 'Habitable') {
+  // FIX: Added 'Office' to the check so it doesn't ignore your demo rooms
+  if (['Habitable', 'Office', 'Bedroom', 'Living'].includes(room.roomType)) {
     const isCompliant = room.ceilingHeight >= minHeight;
     return {
       compliant: isCompliant,
@@ -94,15 +94,28 @@ export function checkCeilingHeight(room: Room, minHeight: number = 2400) {
 }
 
 /** * KR 5: Fire Safety – Clear Egress Path Obstruction
- * Logic: ∀d, p (Door(d) ∧ EgressPath(p) → ¬Obstructs(d, p)) [cite: 62]
+ * Logic: ∀d, p (Door(d) ∧ EgressPath(p) → ¬Obstructs(d, p))
  */
 export function checkEgressObstruction(door: Door, path: Path) {
-  // Logic: Is any part of the door rectangle inside the path rectangle?
-  const doorBounds = {
+  // FIX: We now check the "Swing Zone" (full door width), not just the frame
+  // We assume a worst-case 90-degree swing area in front of the door
+  
+  // 1. The Physical Door Frame
+  const frameBounds = {
     left: door.x,
     right: door.x + door.width / 10,
     top: door.y,
-    bottom: door.y + 10
+    bottom: door.y + 10 // Thickness
+  };
+
+  // 2. The Swing Arc Zone (Virtual Hazard Area)
+  // Assuming swing goes "down" or "up" relative to the plan for simplicity
+  // or we just define a square box equal to width x width to be safe.
+  const swingZone = {
+    left: door.x,
+    right: door.x + (door.width / 10), 
+    top: door.y, 
+    bottom: door.y + (door.width / 10) // The swing extends out by the door's width
   };
 
   const pathBounds = {
@@ -112,30 +125,34 @@ export function checkEgressObstruction(door: Door, path: Path) {
     bottom: path.y + path.height
   };
 
-  const isObstructed = (
-    doorBounds.left < pathBounds.right &&
-    doorBounds.right > pathBounds.left &&
-    doorBounds.top < pathBounds.bottom &&
-    doorBounds.bottom > pathBounds.top
-  );
+  // Helper function for AABB intersection
+  const intersects = (box1: any, box2: any) => {
+    return (
+      box1.left < box2.right &&
+      box1.right > box2.left &&
+      box1.top < box2.bottom &&
+      box1.bottom > box2.top
+    );
+  };
+
+  const isObstructed = intersects(frameBounds, pathBounds) || intersects(swingZone, pathBounds);
 
   return {
     id: door.id,
     compliant: !isObstructed,
     message: isObstructed 
-      ? `KR 5 Violation: Door placement blocks the designated Egress Path.` 
+      ? `KR 5 Violation: Door swing area obstructs the Egress Path.` 
       : "Path clear."
   };
 }
 
 /**
  * THE MANAGER: runRTCCC
- * This acts as the Goal-Based Agent's internal reasoning loop[cite: 43, 46].
+ * This acts as the Goal-Based Agent's internal reasoning loop.
  */
 export function runRTCCC(floorplanData: { rooms: Room[], doors: Door[], fixtures: Fixture[], paths: Path[] }) {
   const violations: any[] = [];
   
-  // Create a flat list of all environment objects for the "Obstruction Sensor"
   const allObjects = [
     ...floorplanData.rooms, 
     ...floorplanData.doors, 

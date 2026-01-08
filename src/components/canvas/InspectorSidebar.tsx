@@ -17,14 +17,15 @@ interface InspectorProps {
 export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: InspectorProps) {
   if (!selectedObject) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4 text-slate-400 italic bg-slate-50 border-l">
+      <div className="flex flex-col items-center justify-center h-full p-4 text-slate-400 italic bg-slate-50 border-l w-96">
         <p>Select an element to inspect</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-white border-l w-80 shadow-xl z-20">
+    // Changed w-80 to w-96 for better visibility
+    <div className="flex flex-col h-full bg-white border-l w-96 shadow-xl z-20 transition-all duration-300">
       <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">{selectedObject.type} Properties</h3>
         <Button 
@@ -37,7 +38,7 @@ export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: Inspect
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         
         {/* === ROOM PROPERTIES === */}
         {selectedObject.type === 'room' && (
@@ -63,17 +64,21 @@ export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: Inspect
                 value={selectedObject.area} 
                 onChange={(e) => {
                   const newArea = Number(e.target.value);
-                  // LOGIC FIX: Recalculate geometric size based on new Area
-                  // Formula: side = sqrt(Area) * 10 (Scaling factor based on 4m^2 = 20px)
-                  const newSide = Math.sqrt(newArea) * 10;
+                  // LOGIC FIX: Area (m²) to Side (mm)
+                  // sqrt(Area) gives side in meters. * 1000 for mm.
+                  const newSideMM = Math.sqrt(newArea) * 1000;
+                  
                   onUpdate({ 
                     ...selectedObject, 
                     area: newArea,
-                    width: newSide,
-                    height: newSide
+                    width: newSideMM,
+                    height: newSideMM
                   });
                 }}
               />
+              <p className="text-[10px] text-slate-400">
+                Calculated Side: {Math.round(Math.sqrt(selectedObject.area) * 1000)} mm
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Ceiling Height (mm)</Label>
@@ -110,14 +115,14 @@ export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: Inspect
                 </SelectContent>
               </Select>
             </div>
-             <div className="flex items-center gap-2 mt-4">
+             <div className="flex items-center gap-2 mt-4 p-2 bg-slate-50 rounded border">
                <input 
                  type="checkbox" 
                  checked={selectedObject.isRequiredExit}
                  onChange={(e) => onUpdate({...selectedObject, isRequiredExit: e.target.checked})}
                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                />
-               <Label className="mb-0">Is Required Exit?</Label>
+               <Label className="mb-0 cursor-pointer">Is Required Exit?</Label>
              </div>
           </div>
         )}
@@ -132,21 +137,23 @@ export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: Inspect
                 onChange={(e) => onUpdate({ ...selectedObject, name: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Clearance Width (mm)</Label>
-              <Input 
-                type="number" 
-                value={selectedObject.clearanceWidth} 
-                onChange={(e) => onUpdate({ ...selectedObject, clearanceWidth: Number(e.target.value) })}
-              />
-            </div>
-             <div className="space-y-2">
-              <Label>Clearance Depth (mm)</Label>
-              <Input 
-                type="number" 
-                value={selectedObject.clearanceDepth} 
-                onChange={(e) => onUpdate({ ...selectedObject, clearanceDepth: Number(e.target.value) })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Clearance Width</Label>
+                <Input 
+                  type="number" 
+                  value={selectedObject.clearanceWidth} 
+                  onChange={(e) => onUpdate({ ...selectedObject, clearanceWidth: Number(e.target.value) })}
+                />
+              </div>
+               <div className="space-y-2">
+                <Label>Clearance Depth</Label>
+                <Input 
+                  type="number" 
+                  value={selectedObject.clearanceDepth} 
+                  onChange={(e) => onUpdate({ ...selectedObject, clearanceDepth: Number(e.target.value) })}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -160,43 +167,74 @@ export function InspectorSidebar({ selectedObject, onUpdate, onDelete }: Inspect
                 type="number" 
                 value={selectedObject.pathWidth} 
                 onChange={(e) => {
-                  const newPathWidth = Number(e.target.value);
-                  // LOGIC FIX: Update geometric height based on Path Width
-                  // Scale: 1 unit = 10mm (1200mm = 120px)
-                  // We update 'height' assuming the path is horizontal. 
-                  const newGeometricHeight = newPathWidth / 10;
-                  
+                  const newWidthMM = Number(e.target.value);
+                  // Update the object's thickness (height) to match the new logical width
                   onUpdate({ 
                     ...selectedObject, 
-                    pathWidth: newPathWidth,
-                    height: newGeometricHeight 
+                    pathWidth: newWidthMM,
+                    height: newWidthMM 
                   });
                 }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Path Length (mm)</Label>
+              <Input 
+                type="number" 
+                value={selectedObject.width} // Visual Width = Length
+                onChange={(e) => onUpdate({ ...selectedObject, width: Number(e.target.value) })}
               />
             </div>
           </div>
         )}
 
-        {/* COMMON PROPERTIES (X/Y) */}
-        <Separator className="my-4" />
-        <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-400">Pos X</Label>
-              <Input 
-                type="number" 
-                value={Math.round(selectedObject.x)} 
-                onChange={(e) => onUpdate({ ...selectedObject, x: Number(e.target.value) })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-400">Pos Y</Label>
-              <Input 
-                type="number" 
-                value={Math.round(selectedObject.y)} 
-                onChange={(e) => onUpdate({ ...selectedObject, y: Number(e.target.value) })}
-              />
-            </div>
+        {/* COMMON PROPERTIES (Dimensions & Position) */}
+        <Separator className="my-6" />
+        
+        <div className="space-y-4">
+          <h4 className="text-xs font-semibold text-slate-500 uppercase">Dimensions (mm)</h4>
+          <div className="grid grid-cols-2 gap-3">
+             <div className="space-y-1">
+               <Label className="text-xs">W / Length</Label>
+               <Input 
+                 type="number"
+                 value={Math.round(selectedObject.width)} 
+                 onChange={(e) => onUpdate({ ...selectedObject, width: Number(e.target.value) })}
+               />
+             </div>
+             <div className="space-y-1">
+               <Label className="text-xs">H / Depth</Label>
+               <Input 
+                 type="number" 
+                 value={Math.round(selectedObject.height)} 
+                 onChange={(e) => onUpdate({ ...selectedObject, height: Number(e.target.value) })}
+               />
+             </div>
+          </div>
         </div>
+
+        <div className="space-y-4 mt-4">
+          <h4 className="text-xs font-semibold text-slate-500 uppercase">Position (Screen coords)</h4>
+          <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">X</Label>
+                <Input 
+                  type="number" 
+                  value={Math.round(selectedObject.x)} 
+                  onChange={(e) => onUpdate({ ...selectedObject, x: Number(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Y</Label>
+                <Input 
+                  type="number" 
+                  value={Math.round(selectedObject.y)} 
+                  onChange={(e) => onUpdate({ ...selectedObject, y: Number(e.target.value) })}
+                />
+              </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
