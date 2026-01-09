@@ -1,11 +1,10 @@
 import { Room, Door, Fixture, Path } from './types';
 
-// Helper: Get bounding box (handling rotation)
+//Object rotation handler
 function getBounds(obj: any) {
   const rotation = obj.rotation || 0;
   const isRotated = rotation === 90 || rotation === 270;
-  
-  // For paths/rooms/fixtures, width is X-axis size, height is Y-axis size (unless rotated)
+
   return {
     left: obj.x,
     top: obj.y,
@@ -14,7 +13,7 @@ function getBounds(obj: any) {
   };
 }
 
-// Helper: Check intersection
+//Check intersection
 function checkIntersection(box1: any, box2: any) {
   return (
     box1.left < box2.right &&
@@ -24,7 +23,7 @@ function checkIntersection(box1: any, box2: any) {
   );
 }
 
-// Helper: Calculate Door Swing Zone
+//Calculate Door Swing Zone
 function getDoorSwingZone(door: Door) {
   const swingRadius = door.width;
   const rot = door.rotation || 0;
@@ -42,7 +41,7 @@ function getDoorSwingZone(door: Door) {
   return { left: door.x, top: door.y, right: door.x + swingRadius, bottom: door.y + swingRadius };
 }
 
-/** KR 1: Fire Safety - Minimum Egress Door Width */
+/* KR 1: Fire Safety - Minimum Egress Door Width */
 // Actuator: IncreaseWidth()
 export function checkDoorWidth(door: Door, minWidth: number = 915) {
   if (door.isRequiredExit) {
@@ -57,7 +56,7 @@ export function checkDoorWidth(door: Door, minWidth: number = 915) {
   return { compliant: true };
 }
 
-/** KR 2: Space Planning - Minimum Room Area */
+/* KR 2: Space Planning - Minimum Room Area */
 // Actuator: ExtendLength() or ExtendWidth()
 export function checkRoomArea(room: Room, minArea: number = 9) {
   if (['Office', 'Habitable', 'Bedroom', 'Living'].includes(room.roomType)) {
@@ -72,7 +71,7 @@ export function checkRoomArea(room: Room, minArea: number = 9) {
   return { compliant: true };
 }
 
-/** KR 4: Indoor Comfort - Ceiling Height */
+/* KR 4: Indoor Comfort - Ceiling Height */
 // Actuator: RaiseRoof()
 export function checkCeilingHeight(room: Room, minHeight: number = 2400) {
   if (['Office', 'Habitable', 'Bedroom', 'Living'].includes(room.roomType)) {
@@ -87,7 +86,7 @@ export function checkCeilingHeight(room: Room, minHeight: number = 2400) {
   return { compliant: true };
 }
 
-/** KR 3: Accessibility - Fixture Clearance */
+/* KR 3: Accessibility - Fixture Clearance */
 // Actuators: Move(), Rotate(), Remove()
 export function checkFixtureClearance(fixture: Fixture, context: { doors: Door[], paths: Path[], fixtures: Fixture[] }) {
   if (!fixture.isAccessible) return { compliant: true };
@@ -139,7 +138,7 @@ export function checkFixtureClearance(fixture: Fixture, context: { doors: Door[]
   return { compliant: true };
 }
 
-/** KR 5: Fire Safety - Egress Obstruction */
+/* KR 5: Fire Safety - Egress Obstruction */
 // Actuators: Move(), Remove(), ChangeSwing()
 export function checkEgressObstruction(door: Door, path: Path) {
   const swingZone = getDoorSwingZone(door);
@@ -155,7 +154,7 @@ export function checkEgressObstruction(door: Door, path: Path) {
   return { compliant: true };
 }
 
-/** MANAGER */
+/* REAL TIME CHECKER MANAGER */
 export function runRTCCC(data: { rooms: Room[], doors: Door[], fixtures: Fixture[], paths: Path[] }) {
   const violations: any[] = [];
 

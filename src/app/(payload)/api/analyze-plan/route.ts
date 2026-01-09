@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-// --- IMPROVED SYSTEM PROMPT ---
 const SYSTEM_PROMPT = `
 You are an expert architectural AI. Your task is to analyze 2D floor plan images and convert them into a structured JSON format for a web app.
 
